@@ -1,14 +1,8 @@
 import React, { useState } from 'react';
 import {
-  User,
   Instagram,
   Copy,
   CheckCircle2,
-  Calendar,
-  MapPin,
-  Target,
-  BookOpen,
-  Quote,
   Sparkles,
   Heart
 } from 'lucide-react';
@@ -50,7 +44,6 @@ export default function App() {
           <span className="font-serif font-bold text-rose-900 text-lg tracking-wider">NP</span>
           <div className="flex gap-6 text-xs font-medium text-stone-600">
             <a href="#profile" className="hover:text-rose-700 transition-colors">Profile</a>
-            <a href="#biodata" className="hover:text-rose-700 transition-colors">Biodata</a>
             <a href="#about" className="hover:text-rose-700 transition-colors">About</a>
             <a href="#contact" className="hover:text-rose-700 transition-colors">Contact</a>
           </div>
@@ -82,64 +75,6 @@ export default function App() {
             <p className="text-sm text-stone-600 max-w-md">
               Welcome to my space. I'm {profileData.name}, a XII grade student passionate about data, creativity, and learning.
             </p>
-          </div>
-
-        </div>
-      </section>
-
-      <section id="biodata" className="max-w-4xl mx-auto px-6 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          <div className="bg-white p-8 rounded-3xl border border-rose-100 shadow-sm">
-            <h2 className="text-rose-900 font-serif text-xl mb-6 flex items-center gap-2">
-              <User className="w-5 h-5 text-rose-600" /> Identitas Diri
-            </h2>
-            <div className="space-y-4 text-sm text-stone-600">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center text-rose-600"><User size={14}/></div>
-                <div>
-                  <span className="text-xs text-stone-400 block">Nama Lengkap</span>
-                  <span className="font-medium text-stone-800">{profileData.name}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center text-rose-600"><Calendar size={14}/></div>
-                <div>
-                  <span className="text-xs text-stone-400 block">Tanggal Lahir</span>
-                  <span className="font-medium text-stone-800">{profileData.biodata.dob}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center text-rose-600"><MapPin size={14}/></div>
-                <div>
-                  <span className="text-xs text-stone-400 block">Sekolah & Tingkat</span>
-                  <span className="font-medium text-stone-800">{profileData.school} ({profileData.grade})</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-rose-50/40 p-8 rounded-3xl border border-rose-100 flex flex-col justify-between">
-            <div className="space-y-5">
-              <div>
-                <h3 className="text-rose-950 font-serif text-sm font-bold flex items-center gap-2 mb-1">
-                  <BookOpen className="w-4 h-4 text-rose-600" /> Hobi
-                </h3>
-                <p className="text-sm text-stone-600">{profileData.biodata.hobbies}</p>
-              </div>
-              <div>
-                <h3 className="text-rose-950 font-serif text-sm font-bold flex items-center gap-2 mb-1">
-                  <Target className="w-4 h-4 text-rose-600" /> Cita-Cita
-                </h3>
-                <p className="text-sm text-stone-600">{profileData.biodata.dream}</p>
-              </div>
-              <div className="pt-3 border-t border-rose-200/50">
-                <h3 className="text-rose-950 font-serif text-sm font-bold flex items-center gap-2 mb-1">
-                  <Quote className="w-4 h-4 text-rose-600" /> Motto Hidup
-                </h3>
-                <p className="text-sm italic text-rose-900 font-serif">"{profileData.biodata.motto}"</p>
-              </div>
-            </div>
           </div>
 
         </div>
