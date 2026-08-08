@@ -21,7 +21,6 @@ export default function App() {
   const [loadingUploads, setLoadingUploads] = useState(false);
   const [uploadsError, setUploadsError] = useState("");
   const profileImage = "https://lqvjphmbebbcdquovkap.supabase.co/storage/v1/object/public/product-images/products/1785799787354-WhatsApp-Image-2026-08-04-at-06.21.12.jpeg";
-  const adminEmail = import.meta.env.VITE_SUPABASE_ADMIN_EMAIL || "nurdiahptugas@gmail.com";
 
   const profileData = {
     name: "Nurdiah Pitaloka",
@@ -49,38 +48,6 @@ export default function App() {
   };
 
   useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { session },
-        error
-      } = await supabase.auth.getSession();
-
-      if (session?.user) {
-        setUser(session.user);
-        checkAdmin(session.user);
-      }
-    };
-
-    getUser();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          setUser(session.user);
-          checkAdmin(session.user);
-        } else {
-          setUser(null);
-          setIsAdmin(false);
-        }
-      }
-    );
-
-    return () => {
-      authListener?.subscription?.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
     const loadUploads = async () => {
       setLoadingUploads(true);
       setUploadsError("");
@@ -101,24 +68,6 @@ export default function App() {
 
     loadUploads();
   }, []);
-
-  const checkAdmin = async (currentUser) => {
-    setAuthError("");
-    setUploadStatus("");
-
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', currentUser.id)
-      .single();
-
-    if (error || !data?.role) {
-      setIsAdmin(false);
-      return;
-    }
-
-    setIsAdmin(data.role === 'admin');
-  };
 
   const handleFileChange = (event) => {
     setSelectedFile(event.target.files[0] || null);
@@ -185,17 +134,20 @@ export default function App() {
     event.preventDefault();
     setAuthError("");
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: adminEmail,
-      password
-    });
+    const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD;
 
-    if (error) {
-      setAuthError(error.message);
+    if (!adminPassword) {
+      setAuthError("Admin password belum dikonfigurasi. Periksa pengaturan lingkungan.");
       return;
     }
 
-    setUser(data.user);
+    if (password !== adminPassword) {
+      setAuthError("Password admin salah.");
+      return;
+    }
+
+    setUser({ id: 'admin' });
+    setIsAdmin(true);
     setPassword("");
   };
 
@@ -293,7 +245,7 @@ export default function App() {
             <div className="space-y-5">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm text-stone-700">Terhubung sebagai: <span className="font-semibold">{user.email}</span></p>
+                  <p className="text-sm text-stone-700">Terhubung sebagai: <span className="font-semibold">Admin</span></p>
                   <p className="text-sm text-stone-500">{isAdmin ? 'Hak akses: Admin' : 'Hak akses: Tidak Admin'}</p>
                 </div>
                 <button
