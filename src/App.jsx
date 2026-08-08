@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Instagram,
   Copy,
@@ -6,9 +6,21 @@ import {
   Sparkles,
   Heart
 } from 'lucide-react';
+import supabase from './supabaseClient.js';
 
 export default function App() {
   const [copied, setCopied] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadStatus, setUploadStatus] = useState("");
+  const [fileInputKey, setFileInputKey] = useState(Date.now());
+  const [user, setUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [uploads, setUploads] = useState([]);
+  const [loadingUploads, setLoadingUploads] = useState(false);
+  const [uploadsError, setUploadsError] = useState("");
   const profileImage = "https://lqvjphmbebbcdquovkap.supabase.co/storage/v1/object/public/product-images/products/1785799787354-WhatsApp-Image-2026-08-04-at-06.21.12.jpeg";
 
   const profileData = {
@@ -34,6 +46,165 @@ export default function App() {
     navigator.clipboard.writeText(profileData.email);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  useEffect(() => {
+    const getUser = async () => {
+      const {
+        data: { session },
+        error
+      } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        setUser(session.user);
+        checkAdmin(session.user);
+      }
+    };
+
+    getUser();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          setUser(session.user);
+          checkAdmin(session.user);
+        } else {
+          setUser(null);
+          setIsAdmin(false);
+        }
+      }
+    );
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    const loadUploads = async () => {
+      setLoadingUploads(true);
+      setUploadsError("");
+
+      const { data, error } = await supabase
+        .from('uploads')
+        .select('id, file_name, file_url, uploaded_at, user_id')
+        .order('uploaded_at', { ascending: false });
+
+      if (error) {
+        setUploadsError(`Gagal memuat daftar tugas: ${error.message}`);
+      } else {
+        setUploads(data || []);
+      }
+
+      setLoadingUploads(false);
+    };
+
+    loadUploads();
+  }, []);
+
+  const checkAdmin = async (currentUser) => {
+    setAuthError("");
+    setUploadStatus("");
+
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', currentUser.id)
+      .single();
+
+    if (error || !data?.role) {
+      setIsAdmin(false);
+      return;
+    }
+
+    setIsAdmin(data.role === 'admin');
+  };
+
+  const handleFileChange = (event) => {
+    setSelectedFile(event.target.files[0] || null);
+    setUploadStatus("");
+  };
+
+  const handleUpload = async (event) => {
+    event.preventDefault();
+
+    if (!isAdmin) {
+      setUploadStatus("Hanya admin yang dapat mengunggah tugas.");
+      return;
+    }
+
+    if (!selectedFile) {
+      setUploadStatus("Pilih dahulu file tugas yang ingin diunggah.");
+      return;
+    }
+
+    setUploadStatus("Mengunggah file ke Supabase...");
+
+    const fileName = `${Date.now()}_${selectedFile.name}`;
+    const folderPath = `tugas/${fileName}`;
+
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('tugas')
+      .upload(folderPath, selectedFile, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (uploadError) {
+      setUploadStatus(`Gagal mengunggah file: ${uploadError.message}`);
+      return;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('tugas')
+      .getPublicUrl(folderPath);
+
+    const { data: insertData, error: insertError } = await supabase
+      .from('uploads')
+      .insert([
+        {
+          file_name: selectedFile.name,
+          file_path: folderPath,
+          file_url: publicUrlData.publicUrl,
+          uploaded_at: new Date().toISOString(),
+          user_id: user.id
+        }
+      ]);
+
+    if (insertError) {
+      setUploadStatus(`File terunggah, tetapi gagal menyimpan metadata: ${insertError.message}`);
+      return;
+    }
+
+    setUploadStatus(`File ${selectedFile.name} berhasil diunggah ke Supabase.`);
+    setSelectedFile(null);
+    setFileInputKey(Date.now());
+  };
+
+  const handleSignIn = async (event) => {
+    event.preventDefault();
+    setAuthError("");
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      setAuthError(error.message);
+      return;
+    }
+
+    setUser(data.user);
+    setEmail("");
+    setPassword("");
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setIsAdmin(false);
+    setUploadStatus("");
   };
 
   return (
@@ -92,6 +263,132 @@ export default function App() {
             </p>
             <p>{profileData.aboutParagraphs[2]}</p>
           </div>
+        </div>
+      </section>
+
+      <section id="upload" className="max-w-4xl mx-auto px-6 py-6">
+        <div className="bg-white p-8 sm:p-12 rounded-3xl border border-rose-100 shadow-sm">
+          <h2 className="text-2xl font-serif text-rose-950 mb-6">Upload Tugas</h2>
+
+          {!user ? (
+            <form onSubmit={handleSignIn} className="space-y-5">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-stone-700">Email admin</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-stone-700 focus:border-rose-400 focus:outline-none"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-stone-700">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-stone-700 focus:border-rose-400 focus:outline-none"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                className="inline-flex items-center justify-center rounded-full bg-rose-900 px-6 py-3 text-sm font-semibold text-white hover:bg-rose-800 transition-colors"
+              >
+                Login Admin
+              </button>
+              {authError && <p className="text-sm text-rose-600">{authError}</p>}
+            </form>
+          ) : (
+            <div className="space-y-5">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-stone-700">Terhubung sebagai: <span className="font-semibold">{user.email}</span></p>
+                  <p className="text-sm text-stone-500">{isAdmin ? 'Hak akses: Admin' : 'Hak akses: Tidak Admin'}</p>
+                </div>
+                <button
+                  onClick={handleSignOut}
+                  className="rounded-full bg-stone-200 px-5 py-2 text-sm font-semibold text-stone-800 hover:bg-stone-300 transition-colors"
+                >
+                  Logout
+                </button>
+              </div>
+                {isAdmin ? (
+                <form onSubmit={handleUpload} className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-stone-700">Pilih file tugas</label>
+                    <input
+                      key={fileInputKey}
+                      type="file"
+                      accept=".pdf,.doc,.docx,.zip,.jpg,.png"
+                      onChange={handleFileChange}
+                      className="w-full rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-stone-700 focus:border-rose-400 focus:outline-none"
+                    />
+                    {selectedFile && (
+                      <p className="text-sm text-stone-600">File yang dipilih: <span className="font-semibold">{selectedFile.name}</span></p>
+                    )}
+                  </div>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center rounded-full bg-rose-900 px-6 py-3 text-sm font-semibold text-white hover:bg-rose-800 transition-colors"
+                  >
+                    Unggah Tugas
+                  </button>
+                  {uploadStatus && (
+                    <p className="text-sm text-stone-700">{uploadStatus}</p>
+                  )}
+                </form>
+              ) : (
+                <p className="text-sm text-rose-600">Hanya admin yang boleh mengunggah tugas.</p>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section id="daftar-tugas" className="max-w-4xl mx-auto px-6 py-6">
+        <div className="bg-white p-8 sm:p-12 rounded-3xl border border-rose-100 shadow-sm">
+          <h2 className="text-2xl font-serif text-rose-950 mb-6">Daftar Tugas Terupload</h2>
+          {loadingUploads ? (
+            <p className="text-sm text-stone-600">Memuat daftar tugas...</p>
+          ) : uploadsError ? (
+            <p className="text-sm text-rose-600">{uploadsError}</p>
+          ) : uploads.length === 0 ? (
+            <p className="text-sm text-stone-600">Belum ada tugas yang diunggah.</p>
+          ) : (
+            <div className="space-y-4">
+              {uploads.map((upload) => (
+                <div key={upload.id} className="rounded-3xl border border-rose-100 bg-rose-50 p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-stone-900">{upload.file_name}</p>
+                      <p className="text-xs text-stone-500 mt-1">Diunggah oleh: {upload.user_id || 'Tidak diketahui'}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <a
+                        href={upload.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-semibold text-rose-900 hover:text-rose-700"
+                      >
+                        Buka file
+                      </a>
+                      <span className="text-xs text-stone-500">
+                        {new Date(upload.uploaded_at).toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <footer id="contact" className="max-w-4xl mx-auto px-6 pt-6">
+            </div>
+          )}
         </div>
       </section>
 
