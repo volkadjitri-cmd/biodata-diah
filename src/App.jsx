@@ -15,6 +15,7 @@ export default function App() {
   const [fileInputKey, setFileInputKey] = useState(Date.now());
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [uploads, setUploads] = useState([]);
@@ -48,6 +49,38 @@ export default function App() {
   };
 
   useEffect(() => {
+    const getUser = async () => {
+      const {
+        data: { session },
+        error
+      } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        setUser(session.user);
+        await checkAdmin(session.user);
+      }
+    };
+
+    getUser();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          setUser(session.user);
+          await checkAdmin(session.user);
+        } else {
+          setUser(null);
+          setIsAdmin(false);
+        }
+      }
+    );
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
     const loadUploads = async () => {
       setLoadingUploads(true);
       setUploadsError("");
@@ -68,6 +101,24 @@ export default function App() {
 
     loadUploads();
   }, []);
+
+  const checkAdmin = async (currentUser) => {
+    setAuthError("");
+    setUploadStatus("");
+
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', currentUser.id)
+      .single();
+
+    if (error || !data?.role) {
+      setIsAdmin(false);
+      return;
+    }
+
+    setIsAdmin(data.role === 'admin');
+  };
 
   const handleFileChange = (event) => {
     setSelectedFile(event.target.files[0] || null);
@@ -134,21 +185,22 @@ export default function App() {
     event.preventDefault();
     setAuthError("");
 
-    const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD;
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
 
-    if (!adminPassword) {
-      setAuthError("Admin password belum dikonfigurasi. Periksa pengaturan lingkungan.");
+    if (error) {
+      setAuthError(error.message);
       return;
     }
 
-    if (password !== adminPassword) {
-      setAuthError("Password admin salah.");
-      return;
+    if (data?.user) {
+      setUser(data.user);
+      await checkAdmin(data.user);
+      setEmail("");
+      setPassword("");
     }
-
-    setUser({ id: 'admin' });
-    setIsAdmin(true);
-    setPassword("");
   };
 
   const handleSignOut = async () => {
@@ -224,6 +276,16 @@ export default function App() {
           {!user ? (
             <form onSubmit={handleSignIn} className="space-y-5">
               <div className="space-y-2">
+                <label className="block text-sm font-medium text-stone-700">Email admin</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-stone-700 focus:border-rose-400 focus:outline-none"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
                 <label className="block text-sm font-medium text-stone-700">Password admin</label>
                 <input
                   type="password"
@@ -245,7 +307,7 @@ export default function App() {
             <div className="space-y-5">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm text-stone-700">Terhubung sebagai: <span className="font-semibold">Admin</span></p>
+                  <p className="text-sm text-stone-700">Terhubung sebagai: <span className="font-semibold">{user?.email || 'Admin'}</span></p>
                   <p className="text-sm text-stone-500">{isAdmin ? 'Hak akses: Admin' : 'Hak akses: Tidak Admin'}</p>
                 </div>
                 <button
