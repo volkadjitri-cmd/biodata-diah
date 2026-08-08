@@ -87,7 +87,7 @@ export default function App() {
 
       const { data, error } = await supabase
         .from('uploads')
-        .select('id, file_name, file_url, uploaded_at')
+        .select('id, file_name, file_url, uploaded_at, user_id')
         .order('uploaded_at', { ascending: false });
 
       if (error) {
@@ -166,7 +166,8 @@ export default function App() {
           file_name: selectedFile.name,
           file_path: folderPath,
           file_url: publicUrlData.publicUrl,
-          uploaded_at: new Date().toISOString()
+          uploaded_at: new Date().toISOString(),
+          user_id: user?.id || null
         }
       ]);
 
@@ -351,6 +352,7 @@ export default function App() {
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
                       <p className="font-semibold text-stone-900">{upload.file_name}</p>
+                      <p className="text-xs text-stone-500 mt-1">Diunggah oleh: {upload.user_id || 'Tidak diketahui'}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <a
