@@ -15,13 +15,13 @@ export default function App() {
   const [fileInputKey, setFileInputKey] = useState(Date.now());
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [uploads, setUploads] = useState([]);
   const [loadingUploads, setLoadingUploads] = useState(false);
   const [uploadsError, setUploadsError] = useState("");
   const profileImage = "https://lqvjphmbebbcdquovkap.supabase.co/storage/v1/object/public/product-images/products/1785799787354-WhatsApp-Image-2026-08-04-at-06.21.12.jpeg";
+  const adminEmail = import.meta.env.VITE_SUPABASE_ADMIN_EMAIL || "nurdiahptugas@gmail.com";
 
   const profileData = {
     name: "Nurdiah Pitaloka",
@@ -87,7 +87,7 @@ export default function App() {
 
       const { data, error } = await supabase
         .from('uploads')
-        .select('id, file_name, file_url, uploaded_at, user_id')
+        .select('id, file_name, file_url, uploaded_at')
         .order('uploaded_at', { ascending: false });
 
       if (error) {
@@ -166,8 +166,7 @@ export default function App() {
           file_name: selectedFile.name,
           file_path: folderPath,
           file_url: publicUrlData.publicUrl,
-          uploaded_at: new Date().toISOString(),
-          user_id: user.id
+          uploaded_at: new Date().toISOString()
         }
       ]);
 
@@ -186,7 +185,7 @@ export default function App() {
     setAuthError("");
 
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
+      email: adminEmail,
       password
     });
 
@@ -196,7 +195,6 @@ export default function App() {
     }
 
     setUser(data.user);
-    setEmail("");
     setPassword("");
   };
 
@@ -273,17 +271,7 @@ export default function App() {
           {!user ? (
             <form onSubmit={handleSignIn} className="space-y-5">
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-stone-700">Email admin</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-stone-700 focus:border-rose-400 focus:outline-none"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-stone-700">Password</label>
+                <label className="block text-sm font-medium text-stone-700">Password admin</label>
                 <input
                   type="password"
                   value={password}
@@ -363,7 +351,6 @@ export default function App() {
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
                       <p className="font-semibold text-stone-900">{upload.file_name}</p>
-                      <p className="text-xs text-stone-500 mt-1">Diunggah oleh: {upload.user_id || 'Tidak diketahui'}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <a
@@ -381,12 +368,6 @@ export default function App() {
                   </div>
                 </div>
               ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      <footer id="contact" className="max-w-4xl mx-auto px-6 pt-6">
             </div>
           )}
         </div>
