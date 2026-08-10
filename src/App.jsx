@@ -23,6 +23,7 @@ export default function App() {
   const [uploadsError, setUploadsError] = useState("");
   const [editingUploadId, setEditingUploadId] = useState(null);
   const [editFileName, setEditFileName] = useState("");
+  const [editFileExtension, setEditFileExtension] = useState("");
   const [studentName, setStudentName] = useState("");
   const [fullName, setFullName] = useState("");
   const [studentClass, setStudentClass] = useState("");
@@ -142,6 +143,18 @@ export default function App() {
     return 'File';
   };
 
+  const getFileExtension = (fileName) => {
+    if (!fileName) return '';
+    const match = fileName.match(/\.([^.]+)$/);
+    return match ? match[1] : '';
+  };
+
+  const getBaseFileName = (fileName) => {
+    if (!fileName) return '';
+    const index = fileName.lastIndexOf('.');
+    return index > 0 ? fileName.slice(0, index) : fileName;
+  };
+
   const isImageFile = (fileName) => /\.(jpe?g|png|gif|webp|svg)$/i.test(fileName);
   const isPdfFile = (fileName) => /\.pdf$/i.test(fileName);
 
@@ -226,23 +239,32 @@ export default function App() {
 
   const handleStartEdit = (upload) => {
     setEditingUploadId(upload.id);
-    setEditFileName(upload.file_name || "");
+    setEditFileName(getBaseFileName(upload.file_name || ""));
+    setEditFileExtension(getFileExtension(upload.file_name || ""));
     setUploadStatus("");
   };
 
   const handleCancelEdit = () => {
     setEditingUploadId(null);
     setEditFileName("");
+    setEditFileExtension("");
   };
 
   const handleSaveFileName = async (upload) => {
-    const newFileName = editFileName.trim();
-    if (!newFileName) {
+    const baseName = editFileName.trim();
+    if (!baseName) {
       setUploadStatus("Nama file tidak boleh kosong.");
       return;
     }
 
-    if (newFileName === upload.file_name) {
+    const hasExtensionInBase = baseName.match(/\.([^.]+)$/);
+    const finalFileName = hasExtensionInBase
+      ? baseName
+      : editFileExtension
+      ? `${baseName}.${editFileExtension}`
+      : baseName;
+
+    if (finalFileName === upload.file_name) {
       handleCancelEdit();
       return;
     }
@@ -250,7 +272,7 @@ export default function App() {
     setUploadStatus("Menyimpan perubahan nama file...");
     const { error } = await supabase
       .from('uploads')
-      .update({ file_name: newFileName })
+      .update({ file_name: finalFileName })
       .eq('id', upload.id);
 
     if (error) {
@@ -552,8 +574,9 @@ export default function App() {
             <div className="space-y-4">
               {uploads.map((upload) => {
                 const metadata = parseUploadDescription(upload);
-                const previewIsImage = isImageFile(upload.file_name);
-                const previewIsPdf = isPdfFile(upload.file_name);
+                const previewSource = upload.file_path || upload.file_name;
+                const previewIsImage = isImageFile(previewSource);
+                const previewIsPdf = isPdfFile(previewSource);
 
                 return (
                   <div key={upload.id} className="overflow-hidden rounded-[2rem] border border-rose-100 bg-gradient-to-br from-white via-rose-50 to-rose-100 shadow-lg shadow-rose-200/70 transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl">
