@@ -33,6 +33,33 @@ BEGIN
   END IF;
 END $$;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policy WHERE polname = 'Allow authenticated update to uploads'
+  ) THEN
+    CREATE POLICY "Allow authenticated update to uploads"
+    ON public.uploads
+    FOR UPDATE
+    TO authenticated
+    USING (true)
+    WITH CHECK (true);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policy WHERE polname = 'Allow authenticated delete on uploads'
+  ) THEN
+    CREATE POLICY "Allow authenticated delete on uploads"
+    ON public.uploads
+    FOR DELETE
+    TO authenticated
+    USING (true);
+  END IF;
+END $$;
+
 -- 3. Izinkan upload ke bucket tugas
 insert into storage.buckets (id, name, public)
 values ('tugas', 'tugas', true)

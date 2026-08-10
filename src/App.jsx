@@ -21,6 +21,8 @@ export default function App() {
   const [uploads, setUploads] = useState([]);
   const [loadingUploads, setLoadingUploads] = useState(false);
   const [uploadsError, setUploadsError] = useState("");
+  const [editingUploadId, setEditingUploadId] = useState(null);
+  const [editFileName, setEditFileName] = useState("");
   const [studentName, setStudentName] = useState("");
   const [fullName, setFullName] = useState("");
   const [studentClass, setStudentClass] = useState("");
@@ -91,7 +93,7 @@ export default function App() {
 
     const { data, error } = await supabase
       .from('uploads')
-      .select('id, file_name, file_url, uploaded_at, user_id, description')
+      .select('id, file_name, file_url, file_path, uploaded_at, user_id, description')
       .order('uploaded_at', { ascending: false });
 
     if (error) {
@@ -121,6 +123,27 @@ export default function App() {
     setSelectedFile(event.target.files[0] || null);
     setUploadStatus("");
   };
+
+  const parseUploadDescription = (upload) => {
+    if (!upload?.description) return null;
+    try {
+      return JSON.parse(upload.description);
+    } catch (error) {
+      return null;
+    }
+  };
+
+  const getFileTypeLabel = (fileName) => {
+    if (!fileName) return 'File';
+    const lower = fileName.toLowerCase();
+    if (lower.endsWith('.pdf')) return 'PDF';
+    if (lower.match(/\.(jpe?g|png|gif|webp|svg)$/)) return 'Gambar';
+    if (lower.match(/\.(docx?|zip)$/)) return 'Dokumen';
+    return 'File';
+  };
+
+  const isImageFile = (fileName) => /\.(jpe?g|png|gif|webp|svg)$/i.test(fileName);
+  const isPdfFile = (fileName) => /\.pdf$/i.test(fileName);
 
   const handleUpload = async (event) => {
     event.preventDefault();
@@ -199,6 +222,78 @@ export default function App() {
     setTaskTitle("");
     setTaskDescription("");
     setFileInputKey(Date.now());
+  };
+
+  const handleStartEdit = (upload) => {
+    setEditingUploadId(upload.id);
+    setEditFileName(upload.file_name || "");
+    setUploadStatus("");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingUploadId(null);
+    setEditFileName("");
+  };
+
+  const handleSaveFileName = async (upload) => {
+    const newFileName = editFileName.trim();
+    if (!newFileName) {
+      setUploadStatus("Nama file tidak boleh kosong.");
+      return;
+    }
+
+    if (newFileName === upload.file_name) {
+      handleCancelEdit();
+      return;
+    }
+
+    setUploadStatus("Menyimpan perubahan nama file...");
+    const { error } = await supabase
+      .from('uploads')
+      .update({ file_name: newFileName })
+      .eq('id', upload.id);
+
+    if (error) {
+      setUploadStatus(`Gagal mengganti nama file: ${error.message}`);
+      return;
+    }
+
+    setUploadStatus(`Nama file berhasil diubah menjadi "${newFileName}".`);
+    setEditingUploadId(null);
+    setEditFileName("");
+    await loadUploads();
+  };
+
+  const handleDeleteUpload = async (upload) => {
+    const confirmed = window.confirm(`Hapus tugas "${upload.file_name}"? Aksi ini tidak dapat dibatalkan.`);
+    if (!confirmed) return;
+
+    setUploadStatus("Menghapus tugas...");
+
+    if (upload.file_path) {
+      const { error: deleteStorageError } = await supabase
+        .storage.from('tugas')
+        .remove([upload.file_path]);
+
+      if (deleteStorageError) {
+        setUploadStatus(`Gagal menghapus file dari storage: ${deleteStorageError.message}`);
+        return;
+      }
+    }
+
+    const { error: deleteDbError } = await supabase
+      .from('uploads')
+      .delete()
+      .eq('id', upload.id);
+
+    if (deleteDbError) {
+      setUploadStatus(`File berhasil dihapus dari storage, tetapi gagal menghapus metadata: ${deleteDbError.message}`);
+      return;
+    }
+
+    setUploadStatus(`Tugas "${upload.file_name}" berhasil dihapus.`);
+    if (editingUploadId === upload.id) handleCancelEdit();
+    await loadUploads();
   };
 
   const handleSignIn = async (event) => {
@@ -455,34 +550,120 @@ export default function App() {
             <p className="text-sm text-stone-600">Belum ada tugas yang diunggah.</p>
           ) : (
             <div className="space-y-4">
-              {uploads.map((upload) => (
-                <div key={upload.id} className="rounded-3xl border border-rose-100 bg-rose-50 p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-stone-900">{upload.file_name}</p>
-                      {upload.description ? (
-                        <p className="text-sm text-stone-600 mt-1">{upload.description}</p>
-                      ) : (
-                        <p className="text-xs text-stone-400 mt-1">Tidak ada keterangan</p>
-                      )}
-                      <p className="text-xs text-stone-500 mt-1">Diunggah oleh: {upload.user_id || 'Tidak diketahui'}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <a
-                        href={upload.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-semibold text-rose-900 hover:text-rose-700"
-                      >
-                        Buka file
-                      </a>
-                      <span className="text-xs text-stone-500">
-                        {new Date(upload.uploaded_at).toLocaleString('id-ID')}
-                      </span>
+              {uploads.map((upload) => {
+                const metadata = parseUploadDescription(upload);
+                const previewIsImage = isImageFile(upload.file_name);
+                const previewIsPdf = isPdfFile(upload.file_name);
+
+                return (
+                  <div key={upload.id} className="overflow-hidden rounded-[2rem] border border-rose-100 bg-gradient-to-br from-white via-rose-50 to-rose-100 shadow-lg shadow-rose-200/70 transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl">
+                    <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)] p-4 sm:p-5">
+                      <div className="rounded-3xl border border-rose-100 bg-white p-3 shadow-sm">
+                        {previewIsImage ? (
+                          <img
+                            src={upload.file_url}
+                            alt={upload.file_name}
+                            className="h-44 w-full rounded-3xl object-cover transition-transform duration-500 hover:scale-105"
+                          />
+                        ) : previewIsPdf ? (
+                          <div className="flex h-44 w-full flex-col items-center justify-center rounded-3xl border border-dashed border-rose-200 bg-rose-50 text-center px-4">
+                            <span className="text-2xl font-semibold text-rose-700">PDF</span>
+                            <p className="text-xs text-stone-500 mt-2">Klik buka untuk melihat preview PDF.</p>
+                          </div>
+                        ) : (
+                          <div className="flex h-44 w-full flex-col items-center justify-center rounded-3xl border border-dashed border-rose-200 bg-rose-50 text-center px-4">
+                            <span className="text-xl font-semibold text-rose-700">{getFileTypeLabel(upload.file_name)}</span>
+                            <p className="text-xs text-stone-500 mt-2">Preview file tersedia saat dibuka.</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-4">
+                        <div className="flex flex-col gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">{getFileTypeLabel(upload.file_name)}</span>
+                            <span className="text-xs text-stone-500">{new Date(upload.uploaded_at).toLocaleString('id-ID')}</span>
+                          </div>
+                          <h3 className="text-lg font-semibold text-stone-900">{upload.file_name}</h3>
+                          <p className="text-sm text-stone-600 line-clamp-2">{metadata?.taskTitle || 'Judul tugas tidak tersedia'}</p>
+                        </div>
+
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <div className="rounded-3xl bg-white/80 p-3 border border-rose-100 shadow-sm">
+                            <p className="text-xs uppercase text-rose-500 tracking-[0.2em]">Siswa</p>
+                            <p className="mt-1 text-sm text-stone-700">{metadata?.studentName || '-'}</p>
+                          </div>
+                          <div className="rounded-3xl bg-white/80 p-3 border border-rose-100 shadow-sm">
+                            <p className="text-xs uppercase text-rose-500 tracking-[0.2em]">Kelas</p>
+                            <p className="mt-1 text-sm text-stone-700">{metadata?.studentClass || '-'}</p>
+                          </div>
+                        </div>
+
+                        <div className="rounded-3xl bg-white/80 p-4 border border-rose-100 shadow-sm">
+                          <p className="text-xs uppercase text-rose-500 tracking-[0.2em]">Catatan</p>
+                          <p className="mt-2 text-sm text-stone-600">{metadata?.notes || 'Tidak ada catatan tambahan.'}</p>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <a
+                            href={upload.file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center rounded-full bg-rose-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-rose-800"
+                          >
+                            Buka Preview
+                          </a>
+                          {isAdmin && editingUploadId !== upload.id && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleStartEdit(upload)}
+                                className="rounded-full bg-stone-200 px-4 py-2 text-xs font-semibold text-stone-800 hover:bg-stone-300 transition-colors"
+                              >
+                                Ubah nama
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteUpload(upload)}
+                                className="rounded-full bg-rose-100 px-4 py-2 text-xs font-semibold text-rose-900 hover:bg-rose-200 transition-colors"
+                              >
+                                Hapus
+                              </button>
+                            </>
+                          )}
+                        </div>
+                        {editingUploadId === upload.id && (
+                          <div className="rounded-3xl border border-rose-200 bg-white p-4 shadow-sm">
+                            <div className="space-y-3">
+                              <div className="flex flex-col sm:flex-row items-center gap-3">
+                                <input
+                                  value={editFileName}
+                                  onChange={(e) => setEditFileName(e.target.value)}
+                                  className="min-w-0 flex-1 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-stone-700 focus:outline-none focus:border-rose-400"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveFileName(upload)}
+                                  className="rounded-full bg-rose-900 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-800 transition-colors"
+                                >
+                                  Simpan
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleCancelEdit}
+                                  className="rounded-full bg-stone-200 px-4 py-2 text-xs font-semibold text-stone-800 hover:bg-stone-300 transition-colors"
+                                >
+                                  Batal
+                                </button>
+                              </div>
+                              <p className="text-xs text-stone-500">Ubah nama file tanpa memindahkan file di storage.</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
