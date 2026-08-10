@@ -106,18 +106,21 @@ export default function App() {
     setAuthError("");
     setUploadStatus("");
 
+    const adminEmail = (import.meta.env.VITE_ADMIN_EMAIL || profileData.email || "nurdiahptugas@gmail.com").toLowerCase();
+
     const { data, error } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', currentUser.id)
-      .single();
+      .maybeSingle();
 
-    if (error || !data?.role) {
-      setIsAdmin(false);
+    if (!error && data?.role) {
+      setIsAdmin(data.role === 'admin');
       return;
     }
 
-    setIsAdmin(data.role === 'admin');
+    const normalizedEmail = currentUser?.email?.toLowerCase();
+    setIsAdmin(Boolean(normalizedEmail && normalizedEmail === adminEmail));
   };
 
   const handleFileChange = (event) => {
@@ -185,9 +188,24 @@ export default function App() {
     event.preventDefault();
     setAuthError("");
 
+    const loginEmail = email.trim().toLowerCase();
+    const loginPassword = password.trim();
+    const adminEmail = (import.meta.env.VITE_ADMIN_EMAIL || profileData.email || "nurdiahptugas@gmail.com").trim().toLowerCase();
+    const adminPassword = (import.meta.env.VITE_ADMIN_PASSWORD || "").trim();
+
+    if (adminEmail && adminPassword && loginEmail === adminEmail && loginPassword === adminPassword) {
+      const localAdminUser = { id: 'local-admin', email: adminEmail };
+      setUser(localAdminUser);
+      setIsAdmin(true);
+      setEmail("");
+      setPassword("");
+      setUploadStatus("");
+      return;
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
+      email: loginEmail,
+      password: loginPassword
     });
 
     if (error) {
@@ -274,7 +292,11 @@ export default function App() {
           <h2 className="text-2xl font-serif text-rose-950 mb-6">Upload Tugas</h2>
 
           {!user ? (
-            <form onSubmit={handleSignIn} className="space-y-5">
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                Fitur unggah tugas hanya tersedia untuk akun admin. Silakan login menggunakan akun administrator.
+              </div>
+              <form onSubmit={handleSignIn} className="space-y-5">
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-stone-700">Email admin</label>
                 <input
@@ -303,6 +325,7 @@ export default function App() {
               </button>
               {authError && <p className="text-sm text-rose-600">{authError}</p>}
             </form>
+            </div>
           ) : (
             <div className="space-y-5">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -343,7 +366,9 @@ export default function App() {
                   )}
                 </form>
               ) : (
-                <p className="text-sm text-rose-600">Hanya admin yang boleh mengunggah tugas.</p>
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                  Hanya admin yang boleh mengunggah tugas.
+                </div>
               )}
             </div>
           )}
