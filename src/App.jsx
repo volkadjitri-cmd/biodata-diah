@@ -21,6 +21,10 @@ export default function App() {
   const [uploads, setUploads] = useState([]);
   const [loadingUploads, setLoadingUploads] = useState(false);
   const [uploadsError, setUploadsError] = useState("");
+  const [studentName, setStudentName] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [studentClass, setStudentClass] = useState("");
+  const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
   const profileImage = "https://lqvjphmbebbcdquovkap.supabase.co/storage/v1/object/public/product-images/products/1785799787354-WhatsApp-Image-2026-08-04-at-06.21.12.jpeg";
 
@@ -166,7 +170,13 @@ export default function App() {
           file_url: publicUrlData.publicUrl,
           uploaded_at: new Date().toISOString(),
           user_id: user?.id || null,
-          description: taskDescription.trim() || null
+          description: JSON.stringify({
+            studentName: studentName.trim(),
+            fullName: fullName.trim(),
+            studentClass: studentClass.trim(),
+            taskTitle: taskTitle.trim(),
+            notes: taskDescription.trim()
+          })
         }
       ]);
 
@@ -183,6 +193,10 @@ export default function App() {
     setUploadStatus(`File ${selectedFile.name} berhasil diunggah ke Supabase.`);
     await loadUploads();
     setSelectedFile(null);
+    setStudentName("");
+    setFullName("");
+    setStudentClass("");
+    setTaskTitle("");
     setTaskDescription("");
     setFileInputKey(Date.now());
   };
@@ -345,8 +359,50 @@ export default function App() {
               </div>
                 {isAdmin ? (
                 <form onSubmit={handleUpload} className="space-y-5">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-stone-700">Nama Siswa</label>
+                      <input
+                        type="text"
+                        value={studentName}
+                        onChange={(e) => setStudentName(e.target.value)}
+                        placeholder="Contoh: Diah"
+                        className="w-full rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-stone-700 focus:border-rose-400 focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-stone-700">Nama Lengkap</label>
+                      <input
+                        type="text"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="Contoh: Nurdiah Pitaloka"
+                        className="w-full rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-stone-700 focus:border-rose-400 focus:outline-none"
+                      />
+                    </div>
+                  </div>
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-stone-700">Pilih file tugas</label>
+                    <label className="block text-sm font-medium text-stone-700">Kelas</label>
+                    <input
+                      type="text"
+                      value={studentClass}
+                      onChange={(e) => setStudentClass(e.target.value)}
+                      placeholder="Contoh: XII IPS 2"
+                      className="w-full rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-stone-700 focus:border-rose-400 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-stone-700">Judul Tugas</label>
+                    <input
+                      type="text"
+                      value={taskTitle}
+                      onChange={(e) => setTaskTitle(e.target.value)}
+                      placeholder="Contoh: Proposal Usaha Kerajinan"
+                      className="w-full rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-stone-700 focus:border-rose-400 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-stone-700">File / Gambar Tugas</label>
                     <input
                       key={fileInputKey}
                       type="file"
@@ -359,12 +415,12 @@ export default function App() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-stone-700">Keterangan tugas</label>
+                    <label className="block text-sm font-medium text-stone-700">Catatan (opsional)</label>
                     <textarea
                       value={taskDescription}
                       onChange={(e) => setTaskDescription(e.target.value)}
                       rows="3"
-                      placeholder="Contoh: Tugas PKWU - Laporan produk"
+                      placeholder="Catatan tambahan untuk guru..."
                       className="w-full rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-stone-700 focus:border-rose-400 focus:outline-none"
                     />
                   </div>

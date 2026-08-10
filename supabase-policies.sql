@@ -1,6 +1,10 @@
 -- Supabase SQL untuk mengizinkan upload tugas dan menyimpan metadata
 -- Jalankan di SQL Editor Supabase
 
+-- 0. Pastikan kolom description ada di tabel uploads
+ALTER TABLE public.uploads
+ADD COLUMN IF NOT EXISTS description text;
+
 -- 1. Buat policy insert untuk tabel uploads
 DO $$
 BEGIN
