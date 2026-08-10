@@ -606,8 +606,12 @@ export default function App() {
                             <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">{getFileTypeLabel(upload.file_name)}</span>
                             <span className="text-xs text-stone-500">{new Date(upload.uploaded_at).toLocaleString('id-ID')}</span>
                           </div>
-                          <h3 className="text-lg font-semibold text-stone-900">{upload.file_name}</h3>
-                          <p className="text-sm text-stone-600 line-clamp-2">{metadata?.taskTitle || 'Judul tugas tidak tersedia'}</p>
+                          <h3 className="text-lg font-semibold text-stone-900">{metadata?.taskTitle || upload.file_name}</h3>
+                          {metadata?.taskTitle ? (
+                            <p className="text-sm text-stone-500">{upload.file_name}</p>
+                          ) : (
+                            <p className="text-sm text-stone-600 line-clamp-2">Judul tugas tidak tersedia</p>
+                          )}
                         </div>
 
                         <div className="grid gap-2 sm:grid-cols-2">
