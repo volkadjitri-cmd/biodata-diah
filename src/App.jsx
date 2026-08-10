@@ -607,11 +607,8 @@ export default function App() {
                             <span className="text-xs text-stone-500">{new Date(upload.uploaded_at).toLocaleString('id-ID')}</span>
                           </div>
                           <h3 className="text-lg font-semibold text-stone-900">
-                            {metadata?.taskTitle ? `${metadata.taskTitle} • ${upload.file_name}` : upload.file_name}
+                            {metadata?.taskTitle || 'Judul tugas tidak tersedia'}
                           </h3>
-                          {!metadata?.taskTitle && (
-                            <p className="text-sm text-stone-600 line-clamp-2">Judul tugas tidak tersedia</p>
-                          )}
                         </div>
 
                         <div className="grid gap-2 sm:grid-cols-2">
