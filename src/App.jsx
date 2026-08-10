@@ -21,6 +21,7 @@ export default function App() {
   const [uploads, setUploads] = useState([]);
   const [loadingUploads, setLoadingUploads] = useState(false);
   const [uploadsError, setUploadsError] = useState("");
+  const [taskDescription, setTaskDescription] = useState("");
   const profileImage = "https://lqvjphmbebbcdquovkap.supabase.co/storage/v1/object/public/product-images/products/1785799787354-WhatsApp-Image-2026-08-04-at-06.21.12.jpeg";
 
   const profileData = {
@@ -80,25 +81,25 @@ export default function App() {
     };
   }, []);
 
+  const loadUploads = async () => {
+    setLoadingUploads(true);
+    setUploadsError("");
+
+    const { data, error } = await supabase
+      .from('uploads')
+      .select('id, file_name, file_url, uploaded_at, user_id, description')
+      .order('uploaded_at', { ascending: false });
+
+    if (error) {
+      setUploadsError(`Gagal memuat daftar tugas: ${error.message}`);
+    } else {
+      setUploads(data || []);
+    }
+
+    setLoadingUploads(false);
+  };
+
   useEffect(() => {
-    const loadUploads = async () => {
-      setLoadingUploads(true);
-      setUploadsError("");
-
-      const { data, error } = await supabase
-        .from('uploads')
-        .select('id, file_name, file_url, uploaded_at, user_id')
-        .order('uploaded_at', { ascending: false });
-
-      if (error) {
-        setUploadsError(`Gagal memuat daftar tugas: ${error.message}`);
-      } else {
-        setUploads(data || []);
-      }
-
-      setLoadingUploads(false);
-    };
-
     loadUploads();
   }, []);
 
@@ -164,7 +165,8 @@ export default function App() {
           file_path: folderPath,
           file_url: publicUrlData.publicUrl,
           uploaded_at: new Date().toISOString(),
-          user_id: user?.id || null
+          user_id: user?.id || null,
+          description: taskDescription.trim() || null
         }
       ]);
 
@@ -179,7 +181,9 @@ export default function App() {
     }
 
     setUploadStatus(`File ${selectedFile.name} berhasil diunggah ke Supabase.`);
+    await loadUploads();
     setSelectedFile(null);
+    setTaskDescription("");
     setFileInputKey(Date.now());
   };
 
@@ -354,6 +358,16 @@ export default function App() {
                       <p className="text-sm text-stone-600">File yang dipilih: <span className="font-semibold">{selectedFile.name}</span></p>
                     )}
                   </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-stone-700">Keterangan tugas</label>
+                    <textarea
+                      value={taskDescription}
+                      onChange={(e) => setTaskDescription(e.target.value)}
+                      rows="3"
+                      placeholder="Contoh: Tugas PKWU - Laporan produk"
+                      className="w-full rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-stone-700 focus:border-rose-400 focus:outline-none"
+                    />
+                  </div>
                   <button
                     type="submit"
                     className="inline-flex items-center justify-center rounded-full bg-rose-900 px-6 py-3 text-sm font-semibold text-white hover:bg-rose-800 transition-colors"
@@ -390,6 +404,11 @@ export default function App() {
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
                       <p className="font-semibold text-stone-900">{upload.file_name}</p>
+                      {upload.description ? (
+                        <p className="text-sm text-stone-600 mt-1">{upload.description}</p>
+                      ) : (
+                        <p className="text-xs text-stone-400 mt-1">Tidak ada keterangan</p>
+                      )}
                       <p className="text-xs text-stone-500 mt-1">Diunggah oleh: {upload.user_id || 'Tidak diketahui'}</p>
                     </div>
                     <div className="flex items-center gap-3">
