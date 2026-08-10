@@ -143,7 +143,12 @@ export default function App() {
       });
 
     if (uploadError) {
-      setUploadStatus(`Gagal mengunggah file: ${uploadError.message}`);
+      const isStoragePolicyError = uploadError.message?.toLowerCase().includes('policy') || uploadError.message?.toLowerCase().includes('permission');
+      if (isStoragePolicyError) {
+        setUploadStatus('Gagal mengunggah file ke storage Supabase karena kebijakan izin. Buka Supabase SQL Editor dan jalankan skrip supabase-policies.sql.');
+      } else {
+        setUploadStatus(`Gagal mengunggah file: ${uploadError.message}`);
+      }
       return;
     }
 
@@ -164,7 +169,12 @@ export default function App() {
       ]);
 
     if (insertError) {
-      setUploadStatus(`File terunggah, tetapi gagal menyimpan metadata: ${insertError.message}`);
+      const isRlsError = insertError.message?.toLowerCase().includes('row-level security') || insertError.message?.toLowerCase().includes('policy');
+      if (isRlsError) {
+        setUploadStatus('File berhasil diunggah ke storage, tetapi gagal menyimpan metadata karena kebijakan RLS Supabase. Buka Supabase SQL Editor dan jalankan skrip supabase-policies.sql.');
+      } else {
+        setUploadStatus(`File terunggah, tetapi gagal menyimpan metadata: ${insertError.message}`);
+      }
       return;
     }
 
