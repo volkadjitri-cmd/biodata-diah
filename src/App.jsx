@@ -106,20 +106,9 @@ export default function App() {
     setAuthError("");
     setUploadStatus("");
 
-    const adminEmail = (import.meta.env.VITE_ADMIN_EMAIL || profileData.email || "nurdiahptugas@gmail.com").toLowerCase();
-
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', currentUser.id)
-      .maybeSingle();
-
-    if (!error && data?.role) {
-      setIsAdmin(data.role === 'admin');
-      return;
-    }
-
+    const adminEmail = (import.meta.env.VITE_ADMIN_EMAIL || profileData.email || "nurdiahptugas@gmail.com").trim().toLowerCase();
     const normalizedEmail = currentUser?.email?.toLowerCase();
+
     setIsAdmin(Boolean(normalizedEmail && normalizedEmail === adminEmail));
   };
 
